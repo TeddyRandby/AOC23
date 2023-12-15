@@ -27,7 +27,7 @@ Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11"
 def partone = read_input('partone.txt')
 
 def pow[.Number](exp)
-  exp > 0 and (self * self:pow(exp - 1)) or 1
+  1 << exp
 end
 
 def part_one(input)
@@ -55,10 +55,8 @@ def propagate_copies[Card](cardlist)
   self:count < 1 and return
   i, done = 0, self:count
 
-  '{self:id} has {self:count} wins and {self:copies} copies':print
   loop
     next_copy = cardlist:at(self:id + i)
-    '{self:id} is adding {self:copies} copies to {next_copy:id}':print
     next_copy or break
 
     next_copy:add_copies(self:copies)
