@@ -55,8 +55,10 @@ def propagate_copies[Card](cardlist)
   self:count < 1 and return
   i, done = 0, self:count
 
+  '{self:id} has {self:count} wins and {self:copies} copies':print
   loop
     next_copy = cardlist:at(self:id + i)
+    '{self:id} is adding {self:copies} copies to {next_copy:id}':print
     next_copy or break
 
     next_copy:add_copies(self:copies)
@@ -80,8 +82,6 @@ def part_two(input)
   end
 
   cards:for(&:each) do (card); card:propagate_copies(cards) end
-
-  #cards:for(&:each) do (card); card:print end
 
   cards:fold(&:each, 0) do (sum, card);
     sum + card:copies
