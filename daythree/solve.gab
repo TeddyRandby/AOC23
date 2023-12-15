@@ -1,0 +1,141 @@
+:use .records
+:use .strings
+:use .streams
+:use .io
+:use .lists
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = "
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+.....43...
+1.2......$"
+
+def partone = read_input("partone.txt")
+
+def digraphs[.String]
+  self:len < 2 and return
+
+  i, done = 0, self:len - 2
+
+  loop
+    yield self:at(i), self:at(i + 1), i, i + 1
+    i = i + 1
+  until i == done end
+end
+
+def is_symbol?[.String]
+  not (self == '.' or self:is_digit? or self == '\n')
+end
+
+# BEGIN SOLUTION
+def Solver { input, rowlen, spans, begin, length, is_part? }
+
+def coord[Solver]
+  pos = self:begin + self:length - 1
+  return (pos / self:rowlen):floor, pos % self:rowlen
+end
+
+def check[Solver](delta_y)
+  row, col = self:coord
+  row = row + delta_y 
+  pos = row * self:rowlen + col
+
+  pos > 0 and pos < self:input:len then
+      self:is_part? = self:is_part? or self:input:at(pos):is_symbol?
+  end
+end
+
+def take_another[Solver]
+  self:length = self:length + 1
+# Check above and below when continuing
+  self:check(-1)
+  self:check(1)
+end
+
+def save[Solver](index)
+# Check all 3 rows when saving
+  self:length = self:length + 1
+
+  self:check(-1)
+  self:check(0)
+  self:check(1)
+
+  self:spans:push! {
+    begin    = self:begin,
+    length   = self:length - 1,
+    is_part? = self:is_part?
+  }
+end
+
+def start_new[Solver](index)
+  # We begind behind one, and check all 3 rows
+  self:is_part? = false
+  self:begin  = index
+  self:length = 1
+
+  self:check(-1)
+  self:check(0)
+  self:check(1)
+
+# Now begin the number itself, and check above and below
+  self:begin = self:begin + 1
+  self:check(-1)
+  self:check(1)
+end
+
+# Cases for our state machine
+def begin_digit    = :record.exactly?([false, true])
+def end_digit      = :record.exactly?([true, false])
+def continue_digit = :record.exactly?([true, true])
+
+def part_one(input)
+  def solver = {
+    input,
+    rowlen   = input :split '\n' :len + 1,
+    spans    = :list.new,
+    begin    = 0,
+    length   = 0,
+    is_part? = false
+  }
+
+  input:for(&:digraphs) do (lhs, rhs, i)
+    [lhs:is_digit?, rhs:is_digit?] :match {
+      [begin_digit]     = do; solver:start_new(i) end,
+      [continue_digit]  = do; solver:take_another end,
+      [end_digit]       = do; solver:save         end
+    }
+  end
+
+  sum = solver:spans:fold(&:each, 0) do (sum, span)
+    num = input:slice(span:begin, span:begin + span:length):to_n
+    sum + (span:is_part? and num or 0)
+  end
+end
+
+sum = part_one(partoneexample)
+
+'day three part one example: {sum}':print
+
+sum = part_one(partone)
+
+'day three part one: {sum}':print

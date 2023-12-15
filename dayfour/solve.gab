@@ -1,0 +1,101 @@
+:use .records
+:use .strings
+:use .streams
+:use .io
+:use .lists
+:use .maps
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11"
+
+def partone = read_input('partone.txt')
+
+def pow[.Number](exp)
+  exp > 0 and (self * self:pow(exp - 1)) or 1
+end
+
+def part_one(input)
+  input:fold(&:split, '\n', 0) do (sum, line)
+    _, numbers = line:take(&:split, ':', 2)
+
+    def winning, mine = numbers:take(&:split, '|', 2)
+
+    count = winning:fold(&:split, ' ', 0) do (count, num)
+      pat = num:len == 1 and '  {num}' or num
+      count + (mine:has?(pat) and 1 or 0)
+    end
+
+    sum + (count > 0 and (2:pow(count - 1)) or 0)
+  end
+end
+
+def Card { id, count, copies }
+
+def add_copies[Card](n)
+  self:copies = self:copies + n
+end
+
+def propagate_copies[Card](cardlist)
+  self:count < 1 and return
+  i, done = 0, self:count
+
+  loop
+    next_copy = cardlist:at(self:id + i)
+    next_copy or break
+
+    next_copy:add_copies(self:copies)
+    i = i + 1
+  until i == done end
+end
+
+def part_two(input)
+  def cards = input:list.collect(&:map, &:split, '\n') do (line)
+    def title, numbers = line:take(&:split, ':', 2)
+    def id = title:slice(5, title:len):to_n
+
+    def winning, mine = numbers:take(&:split, '|', 2)
+
+    def count = winning:fold(&:split, ' ', 0) do (count, num)
+      pat = num:len == 1 and '  {num}' or num
+      count + (mine:has?(pat) and 1 or 0)
+    end
+
+    { id, count, copies = 1 }
+  end
+
+  cards:for(&:each) do (card); card:propagate_copies(cards) end
+
+  #cards:for(&:each) do (card); card:print end
+
+  cards:fold(&:each, 0) do (sum, card);
+    sum + card:copies
+  end
+end
+
+sum = part_one(partoneexample)
+'day four part one example: {sum}':print
+
+sum = part_one(partone)
+'day four part one: {sum}':print
+
+sum = part_two(partoneexample)
+'day four part two example: {sum}':print
+
+sum = part_two(partone)
+'day four part two: {sum}':print
