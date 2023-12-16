@@ -1,0 +1,129 @@
+:use .records
+:use .strings
+:use .streams
+:use .io
+:use .lists
+:use .maps
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = read_input('partoneexample.txt')
+
+def Mapping {
+  src,
+  dst,
+  len
+}
+
+def to_mapping[.String]
+  def dst, src, len = self:take(&:split, ' ', 3)
+
+  { dst, src, len }
+end
+
+def AlmanacMap {
+  src_type,
+  dst_type,
+  mappings,
+}
+
+def to_almanacmap[.String]
+  def lines = self:list.collect(&:split, '\n')
+
+  def title = lines[0]:take(&:split, ' ', 1)
+  def src_type, _, dst_type = title:take(&:split, '-', 3)
+
+  def mappings = :tuple.new(lines:len - 1)
+
+  i, done = 1, lines:len
+  i < done and loop
+    mappings[i - 1] = lines[i]:to_mapping
+    i = i + 1
+  until i == done end
+
+  {
+    src_type,
+    dst_type,
+    mappings,
+  }
+end
+
+def follow_value[AlmanacMap](needle)
+# Check through all the mappings for the first mapping
+# which contains the needle
+  res, dst = self:mappings:first(&:values) do (haystack)
+    bottom, top = haystack:src, haystack:src + haystack:len
+
+    bottom < needle and needle < top then
+# Woohoo! This mapping contains the needle.
+# Map the source value to a destination value.
+      diff = needle - bottom
+      return .some, haystack:dst + diff
+    end
+
+    return .none
+  end
+
+# We found a mapping, return it.
+  res == .some and return dst
+
+# We didn't find a mapping, just use the needle.
+  return needle
+end
+
+def AlmanacGraph { seeds, srcmap, dstmap }
+
+def follow_seed[AlmanacGraph](seed, dst_type)
+  st, v = .seed, seed
+
+  loop
+    am = self:srcmap[st]
+    v, st = am:follow_value(v), am:src_type
+  until st == dst_type end
+
+  v
+end
+
+def to_almanacgraph[.String]
+  def groups = self:list.collect(&:split, '\n\n', 1)
+
+  _, seed_string = groups[0]:take(&:split, ':', 2)
+  def seeds = seed_string:list.collect(&:split, ' ')
+
+  def am_groups = :tuple.new(groups:len - 1)
+
+  i, done = 1, groups:len
+  loop
+    am_groups[i - 1] = groups[i]:to_almanacmap
+    i = i + 1
+  until i == done end
+
+  def srcmap = am_groups:fold(&:values, :map.new) do (srcmap, am)
+    srcmap:put!(am:src_type, am)
+  end
+
+  def dstmap = am_groups:fold(&:values, :map.new) do (dstmap, am)
+    dstmap:put!(am:dst_type, am)
+  end
+
+  { seeds, srcmap, dstmap }
+end
+
+def part_one(input)
+  def g = input:to_almanacgraph
+
+  g:print
+end
+
+def result = part_one(partoneexample)
+result:for(&:each) do; @1:print end
