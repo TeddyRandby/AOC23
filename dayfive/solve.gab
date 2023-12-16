@@ -17,7 +17,10 @@ def read_input(name)
   content
 end
 
+def REALLYBIGNUMBER = 9999999999999
+
 def partoneexample = read_input('partoneexample.txt')
+def partone = read_input('partone.txt')
 
 def Mapping {
   src,
@@ -28,7 +31,7 @@ def Mapping {
 def to_mapping[.String]
   def dst, src, len = self:take(&:split, ' ', 3)
 
-  { dst, src, len }
+  { dst = dst:to_n, src = src:to_n, len = len:to_n }
 end
 
 def AlmanacMap {
@@ -88,7 +91,8 @@ def follow_seed[AlmanacGraph](seed, dst_type)
 
   loop
     am = self:srcmap[st]
-    v, st = am:follow_value(v), am:src_type
+    v = am:follow_value(v)
+    st = am:dst_type
   until st == dst_type end
 
   v
@@ -98,7 +102,7 @@ def to_almanacgraph[.String]
   def groups = self:list.collect(&:split, '\n\n', 1)
 
   _, seed_string = groups[0]:take(&:split, ':', 2)
-  def seeds = seed_string:list.collect(&:split, ' ')
+  def seeds = seed_string:list.collect(&:map, &:split, ' ') do; @1:to_n end
 
   def am_groups = :tuple.new(groups:len - 1)
 
@@ -122,8 +126,14 @@ end
 def part_one(input)
   def g = input:to_almanacgraph
 
-  g:print
+  lowest_location = g:seeds:fold(&:each, REALLYBIGNUMBER) do (sofar, seed)
+    location = g:follow_seed(seed, .location)    
+    location < sofar and location or sofar
+  end
 end
 
 def result = part_one(partoneexample)
-result:for(&:each) do; @1:print end
+'day five part one example: {result}':print
+
+def result = part_one(partone)
+'day five part one {result}':print
