@@ -171,13 +171,7 @@ def in_map?[Range](map)
   end
 end
 
-# The strategy here should actually be to try and consume a range over the course of the mappings.
-# Iterate the mappings, take chunks _out_ of the input range, and whatever is left ofer remains unchanged.
-
-# Follow a *needle* (a number value) through a mapping
 def follow_value[AlmanacMap](v)
-# Check through all the mappings for the first mapping
-# which contains the value
   def unmatched = :list.new:push!(v)
 
   vs = self:mappings:list.collect(
@@ -193,6 +187,7 @@ def follow_value[AlmanacMap](v)
 
         range_in then
           acc:matched:push!(range_in)
+# The range we just matched against should be removed from the unmatched list
           unmatched:put!(i, nil_range)
         end
 
@@ -203,13 +198,16 @@ def follow_value[AlmanacMap](v)
         acc
       end
 
+# If we have any unmatched ranges, replace the list of ranges to look for.
       acc:unmatched:empty? or unmatched:replace!(acc:unmatched)
 
+# Return all the matches we found in this mapping
       acc:matched:splat
     end,
     &:to_b,
   )
 
+# Push all our unmatched ranges, as they pass straigh through
   vs:push!(unmatched:splat)
 end
 
@@ -237,9 +235,12 @@ def follow_value[AlmanacGraph](v, src_type)
   # Follow the current value through this map 
   def vs = am:follow_value(v)
 
+  # If we reached the location dst, type, we're done and can add our results
+  # to the done list. ( this could be cheaper if we just keep the minimum found so far)
   am:dst_type == .location then
     self:done_list:push!(vs:splat)
   end else
+  # Otherwise, queue new jobs to follow each of our ranges through the next map
     vs:for(&:each) do (seed)
       self:queue! { seed, src_type = am:dst_type }
     end
