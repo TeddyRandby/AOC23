@@ -17,28 +17,42 @@ def read_input(name)
   content
 end
 
-def REALLYBIGNUMBER = 9999999999999
-
 def partoneexample = read_input('partoneexample.txt')
+
 def partone = read_input('partone.txt')
 
-def Mapping {
-  src,
-  dst,
-  len
-}
+def REALLYBIGNUMBER = 9999999999999
 
+def min[.List]
+  self:fold(&:each, REALLYBIGNUMBER) do (sofar, next)
+    next < sofar and next or sofar
+  end
+end
+
+
+## Useful types
+def Mapping { src, dst, len }
+
+def AlmanacMap { src_type, dst_type, mappings }
+
+def Range { begin, len }
+
+def nil_range = { begin = REALLYBIGNUMBER, len = 0 }
+
+def AlmanacGraph { seeds, srcmap, dstmap, work_queue, done_list }
+
+def begin[.Number]; self end
+
+def to_b[Range]; self:len > 0 end
+
+def <[Range](other); self:begin < other:begin end
+
+## Transform strings into our useful types
 def to_mapping[.String]
   def dst, src, len = self:take(&:split, ' ', 3)
 
-  { dst = dst:to_n, src = src:to_n, len = len:to_n }
+  { src = src:to_n, dst = dst:to_n, len = len:to_n }
 end
-
-def AlmanacMap {
-  src_type,
-  dst_type,
-  mappings,
-}
 
 def to_almanacmap[.String]
   def lines = self:list.collect(&:split, '\n')
@@ -54,48 +68,7 @@ def to_almanacmap[.String]
     i = i + 1
   until i == done end
 
-  {
-    src_type,
-    dst_type,
-    mappings,
-  }
-end
-
-def follow_value[AlmanacMap](needle)
-# Check through all the mappings for the first mapping
-# which contains the needle
-  res, dst = self:mappings:first(&:values) do (haystack)
-    bottom, top = haystack:src, haystack:src + haystack:len
-
-    bottom < needle and needle < top then
-# Woohoo! This mapping contains the needle.
-# Map the source value to a destination value.
-      diff = needle - bottom
-      return .some, haystack:dst + diff
-    end
-
-    return .none
-  end
-
-# We found a mapping, return it.
-  res == .some and return dst
-
-# We didn't find a mapping, just use the needle.
-  return needle
-end
-
-def AlmanacGraph { seeds, srcmap, dstmap }
-
-def follow_seed[AlmanacGraph](seed, dst_type)
-  st, v = .seed, seed
-
-  loop
-    am = self:srcmap[st]
-    v = am:follow_value(v)
-    st = am:dst_type
-  until st == dst_type end
-
-  v
+  { src_type, dst_type, mappings }
 end
 
 def to_almanacgraph[.String]
@@ -120,16 +93,190 @@ def to_almanacgraph[.String]
     dstmap:put!(am:dst_type, am)
   end
 
-  { seeds, srcmap, dstmap }
+  { seeds, srcmap, dstmap, work_queue = :list.new, done_list = :list.new }
+end
+
+## These are the only two actual business methods
+
+def in_map?[.Number](map)
+  def bottom, top = map:src, map:src + map:len
+
+  bottom < self and self < top then
+# Woohoo! This mapping contains our needle.
+# Map the source value to a destination value.
+    diff = self - bottom
+    return map:dst + diff
+  end
+end
+
+def in_bounds?[.Number](bottom, top)
+  self >= bottom and self < top
+end
+
+def in_bounds?[Range](bottom, top)
+  self:len > 0 or return
+
+  e = self:begin + self:len
+
+  b_in, e_in = self:begin:in_bounds?(bottom, top), e:in_bounds?(bottom, top)
+
+  b_in and e_in and return .inside
+
+  b_in and return .rhs
+
+  e_in and return .lhs
+
+  self:begin < bottom and e > top and return .around
+end
+
+def in_map?[nil]; nil end
+
+def in_map?[Range](map)
+  self:len > 0 or return
+
+  def bottom, top = map:src, map:src + map:len
+
+  pos = self:in_bounds?(bottom, top) in then
+# Woohoo! This mapping contains our needle.
+# Map the source value to a destination value.
+    def bottom_edge, top_edge = :num.max(bottom, self:begin), :num.min(self:begin + self:len, top)
+
+    def begin_offset = :num.max(self:begin - bottom, 0)
+    def begin_in = map:dst + begin_offset
+    def len_in = top_edge - (bottom_edge)
+
+    def out_a, out_b = pos :match {
+      lhs = do
+        len = self:len - len_in
+        len > 0 and { begin = self:begin, len } or nil
+      end,
+      rhs = do
+        len = self:len - len_in 
+        len > 0 and { begin = top, len } or nil
+      end,
+      around = do
+        # This splits into two outside ranges
+        len_lhs = bottom - self:begin
+        len_rhs = self:len - len_in - len_lhs
+        lhs = len_lhs > 0 and { begin = self:begin, len = len_lhs } or nil
+        rhs = len_rhs > 0 and { begin = top, len = len_rhs } or nil
+        return lhs, rhs 
+      end,
+      inside = do
+        nil
+      end
+    }
+
+    return { begin = begin_in, len = len_in }, out_a, out_b
+  end
+end
+
+# The strategy here should actually be to try and consume a range over the course of the mappings.
+# Iterate the mappings, take chunks _out_ of the input range, and whatever is left ofer remains unchanged.
+
+# Follow a *needle* (a number value) through a mapping
+def follow_value[AlmanacMap](v)
+# Check through all the mappings for the first mapping
+# which contains the value
+  def unmatched = :list.new:push!(v)
+
+  vs = self:mappings:list.collect(
+    &:filter,
+    &:flatmap,
+    &:values,
+    do (map)
+# As we check every mapping, keep a list of matched and unmatched ranges.
+# Update our list of unmatched ranges to check as we loop through - 
+# Every time we match a range, we get up to one matched range and up to two unmatched ranges.
+      acc = unmatched:fold(&:each) { matched = :list.new, unmatched = :list.new } do (acc, v, i)
+        range_in, range_outa, range_outb = v:in_map?(map)
+
+        range_in then
+          acc:matched:push!(range_in)
+          unmatched:put!(i, nil_range)
+        end
+
+        range_outa and acc:unmatched:push!(range_outa)
+
+        range_outb and acc:unmatched:push!(range_outb)
+
+        acc
+      end
+
+      acc:unmatched:empty? or unmatched:replace!(acc:unmatched)
+
+      acc:matched:splat
+    end,
+    &:to_b,
+  )
+
+  vs:push!(unmatched:splat)
+end
+
+def empty?[AlmanacGraph]
+  self:work_queue:empty?
+end
+
+def queue![AlmanacGraph](*jobs)
+  self:work_queue:push!(jobs:splat)
+end
+
+def work![AlmanacGraph]
+  loop; self:follow_next until self:empty? end
+end
+
+def follow_next[AlmanacGraph]
+  job = self:work_queue:pop!
+  self:follow_value(job:splat)
+end
+
+# Follow a seed through a mapping until we reach a desired destination type
+def follow_value[AlmanacGraph](v, src_type)
+  # Get the almanac map which has source of <st>
+  def am = self:srcmap[src_type]
+  # Follow the current value through this map 
+  def vs = am:follow_value(v)
+
+  am:dst_type == .location then
+    self:done_list:push!(vs:splat)
+  end else
+    vs:for(&:each) do (seed)
+      self:queue! { seed, src_type = am:dst_type }
+    end
+  end
 end
 
 def part_one(input)
   def g = input:to_almanacgraph
 
-  lowest_location = g:seeds:fold(&:each, REALLYBIGNUMBER) do (sofar, seed)
-    location = g:follow_seed(seed, .location)    
-    location < sofar and location or sofar
+  def jobs = g:seeds:list.collect(&:map, &:each) do (seed)
+    { seed, src_type = .seed }
   end
+
+  g:queue!(jobs:splat)
+
+  g:work!
+
+  g:done_list:min
+end
+
+def part_two(input)
+  def g = input:to_almanacgraph
+
+  def jobs = g:seeds:list.collect(
+    &:map,
+    &:partition,
+    &:each,
+    2,
+    do (begin, len); { begin, len } end,
+    do (seed); { seed, src_type =  .seed } end,
+  )
+
+  g:queue!(jobs:splat)
+
+  g:work!
+
+  g:done_list:min:begin
 end
 
 def result = part_one(partoneexample)
@@ -137,3 +284,9 @@ def result = part_one(partoneexample)
 
 def result = part_one(partone)
 'day five part one {result}':print
+
+def result = part_two(partoneexample)
+'day five part two example: {result}':print
+
+def result = part_two(partone)
+'day five part two: {result}':print
