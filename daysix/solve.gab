@@ -1,0 +1,87 @@
+:use .strings
+:use .numbers
+:use .streams
+:use .lists
+:use .conditionals
+:use .io
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = "
+Time:      7  15   30
+Distance:  9  40  200
+"
+
+def input = read_input('input.txt')
+
+def calculate_wins(times, distances)
+  times:fold(&:pairs, 1) do (product, i, time)
+    distance = distances[i]
+
+    wins, hold, done = 0, 1, time 
+
+    loop
+      race = time - hold
+      dist = race * hold
+
+      dist > distance and ( wins = wins + 1 )
+      
+      hold = hold + 1
+    until hold == done end
+
+    product * (wins > 0 and wins or 1)
+  end
+end
+
+
+def partone(input)
+  time, dist = input:take(&:split, '\n', 2)
+
+  _, vals = time:take(&:split, ':', 2)
+
+  times = vals:list.collect(&:map, &:split, ' ', &:to_n)
+
+  _, vals = dist:take(&:split, ':', 2)
+
+  dists = vals:list.collect(&:map, &:split, ' ', &:to_n)
+
+  calculate_wins(times, dists)
+end
+
+def parttwo(input)
+  time, dist = input:take(&:split, '\n', 2)
+
+  _, vals = time:take(&:split, ':', 2)
+
+  times = vals:list.collect(&:split, ' ')
+  times = :string.new(times:splat) :to_n
+
+  _, vals = dist:take(&:split, ':', 2)
+
+  dists = vals:list.collect(&:split, ' ')
+  dists = :string.new(dists:splat) :to_n
+
+  calculate_wins([times], [dists])
+end
+
+def product = partone(partoneexample)
+'Day six part one example: {product}':print
+
+def product = partone(input)
+'Day six part one: {product}':print
+
+def product = parttwo(partoneexample)
+'Day six part two example: {product}':print
+
+def product = parttwo(input)
+'Day six part two example: {product}':print

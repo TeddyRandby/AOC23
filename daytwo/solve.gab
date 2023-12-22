@@ -1,6 +1,7 @@
 :use .records
 :use .strings
 :use .streams
+:use .lists
 :use .io
 
 def read_input(name)

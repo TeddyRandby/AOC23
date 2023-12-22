@@ -247,6 +247,14 @@ def follow_value[AlmanacGraph](v, src_type)
   end
 end
 
+def solve[AlmanacGraph](jobs)
+  self:queue!(jobs:splat)
+
+  self:work!
+
+  self:done_list:min:begin
+end
+
 def part_one(input)
   def g = input:to_almanacgraph
 
@@ -254,11 +262,7 @@ def part_one(input)
     { seed, src_type = .seed }
   end
 
-  g:queue!(jobs:splat)
-
-  g:work!
-
-  g:done_list:min
+  g:solve(jobs)
 end
 
 def part_two(input)
@@ -269,15 +273,10 @@ def part_two(input)
     &:partition,
     &:each,
     2,
-    do (begin, len); { begin, len } end,
-    do (seed); { seed, src_type =  .seed } end,
+    do (begin, len); { seed = { begin, len }, src_type =  .seed } end,
   )
 
-  g:queue!(jobs:splat)
-
-  g:work!
-
-  g:done_list:min:begin
+  g:solve(jobs)
 end
 
 def result = part_one(partoneexample)

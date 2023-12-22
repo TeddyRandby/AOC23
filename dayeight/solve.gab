@@ -1,0 +1,22 @@
+:use .records
+:use .strings
+:use .streams
+:use .io
+:use .lists
+:use .maps
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = ""
+
+def partone = read_input('input.txt')

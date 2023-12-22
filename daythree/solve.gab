@@ -123,7 +123,7 @@ def part_one(input)
       [begin_digit]     = do; solver:start_new(i) end,
       [continue_digit]  = do; solver:take_another end,
       [end_digit]       = do; solver:save         end
-    }
+    } do; .pass end
   end
 
   sum = solver:spans:fold(&:each, 0) do (sum, span)

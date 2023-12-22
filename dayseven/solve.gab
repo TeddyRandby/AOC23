@@ -1,0 +1,150 @@
+:use .records
+:use .strings
+:use .streams
+:use .io
+:use .lists
+:use .maps
+
+def read_input(name)
+  s, file = :io.open(name, 'r')
+
+  s == .ok or s:panic
+
+  s, content = file:read
+
+  s == .ok or s:panic
+
+  content
+end
+
+def partoneexample = "LLR
+
+AAA = (BBB, BBB)
+BBB = (AAA, ZZZ)
+ZZZ = (ZZZ, ZZZ)"
+
+def parttwoexample = "LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)"
+
+def input = read_input('input.txt')
+
+def Graph { nodes, turns, location }
+
+def Node { name, L, R }
+
+def to_node[.String]
+  {
+    name = self:slice(3),
+    L    = self:slice(7, 10),
+    R    = self:slice(12, 15),
+  }
+end
+
+def is_done?[.String]
+  self == .ZZZ and .some or .none
+end
+
+def to_graph[.String]
+  nodes = self:fold(
+    &:map,
+    &:split,
+    '\n',
+    &:to_node,
+    :map.new,
+    do (acc, n)
+      acc:put!(n:name, n)
+    end,
+  )
+
+  { nodes, turns = 0, location }
+end
+
+def wrapchars[.String]
+  i, wrap = 0, self:len
+  loop
+    yield self:at(i % wrap)  
+    i = i + 1
+  end
+end
+
+def turnstring[Graph](dir)
+  self:turns = self:turns + 1  
+
+  self:location = self:nodes[self:location][dir]
+
+  self:location:is_done?
+end
+
+def turnlist[Graph](dir)
+  self:turns = self:turns + 1  
+
+  i, done, sofar = 0, self:location:len, true
+
+  loop
+    node = self:nodes[self:location:at(i)][dir]
+    sofar = sofar and .Z:ends?(node)
+    self:location:put!(i, node)
+    i = i + 1
+  until i == done end
+
+  sofar
+end
+
+def part_one(input)
+# Parsing
+  def turns, nodes = input:take(&:split, '\n\n', 2)
+
+  def graph = nodes:to_graph
+
+# Initialize the starting location to node AAA
+  graph:location = .AAA
+
+# Take turns until :turn returns .some
+  turns:first(&:wrapchars) do (dir); graph:turnstring(dir) end
+
+# Return the number of turns we took
+  graph:turns
+end
+
+def part_two(input)
+  def turns, nodes = input:take(&:split, '\n\n', 2)
+
+  def graph = nodes:to_graph
+
+# Initialize the location to all nodes which end in A
+  graph:location = graph:nodes:list.collect(
+    &:filter,
+    &:keys,
+    do (key); 'A':ends?(key) end,
+  )
+
+  i, wrap = 0, turns:len
+  loop
+    dir = turns:at(i % wrap)
+
+    graph:turnlist(dir) and break
+    i = i + 1
+  end
+
+  graph:turns
+end
+
+answer = part_one(partoneexample)
+'Day seven part one example: {answer}':print
+
+answer = part_one(input)
+'Day seven part one: {answer}':print
+
+answer = part_two(parttwoexample)
+'Day seven part two example: {answer}':print
+
+answer = part_two(input)
+'Day seven part two: {answer}':print
